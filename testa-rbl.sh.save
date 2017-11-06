@@ -1,0 +1,45 @@
+#!/bin/bash
+
+#PS4='File=$BASH_SOURCE: LineNo=$LINENO: '
+#set -x
+
+if 
+
+if [ -z "$1" ] ; then
+	echo "Informe o ip/hostname do servidor a ser verificado"
+	exit -1
+fi
+
+source /opt/rbl/rbl.conf
+
+#gera lista de rbl
+$(dirname $0)/gera-rbl-servers.sh $ARQSERVERS
+
+if [ -n "$(echo $1|egrep '[a-zA-Z]')" ]; then # usuario informou hostname
+	IP_SERV=`dig @$DNS $1 +short`
+	IP_REV=`echo $IP_SERV | awk -F "." '{print $4"."$3"."$2"."$1}'`
+else
+	IP_REV=`echo $1 | awk -F "." '{print $4"."$3"."$2"."$1}'`
+fi
+
+egrep -v -f $ARQIGNORE $ARQSERVERS | egrep -v '^$|^[!-@]' > $TMP
+
+C=0
+
+while read SERVIDOR; do
+{
+	echo -n "$SERVIDOR: " 
+	RESP="$(dig @$DNS $IP_REV.$SERVIDOR +short 2>&1)"
+	#echo $RESP
+	if [ -z "$RESP" ]; then
+		echo "OK"
+	else
+		echo "LISTADO"
+		let C++
+		dig @$DNS $IP_REV.$SERVIDOR +short any
+	fi
+}
+done < $TMP
+
+echo Total de RBLs Listadas: $C
+exit $C
